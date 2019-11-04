@@ -12,8 +12,6 @@ from torch.nn.modules.pooling import *
 import time
 import random
 import datetime
-#import torchvision
-#import torchvision.transforms as transforms
 from torch.autograd import Variable
 import tensorflow as tf
 from sklearn import preprocessing
@@ -21,15 +19,13 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 
 
-#base_path = '/home/pooja/Desktop/IIITD/Research/Stock_class_classification/'
+
 base_path = '../'
 
 #loads the data 
 def getData(fileName):
     filepath = base_path + 'data/' + fileName
     data = pd.read_csv(filepath,sep = ',')
-    if fileName == 'all_stocks_2006-01-01_to_2018-01-01.csv':
-        data.rename(columns = {'Date':'DATE','Low':'LOW','High':'HIGH','Close':'CLOSE','Open':'OPEN','Volume':'CONTRACTS','Name':'SYMBOL'},inplace=True)
     ##display('data\'s shape : ',data.shape)
     display(data.head())
     ##display(data.describe())
@@ -174,8 +170,6 @@ def getFeatWiseData(windowed_data,features_list):
     ##print(temp_records.shape)
     return temp_records
 
-
-#def getLastRecord(stock):
     
     
 

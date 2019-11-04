@@ -6,7 +6,6 @@ import numpy as np
 from data_processing import *
 
 res_path = '../Results/'
-models = ['CNN','RNN','LSTM','Resnet','Densenet']
 def computeConfMatrix(ytrue,ypred,title):
     cm = confusion_matrix(ytrue, ypred)
     tn, fp, fn, tp = confusion_matrix(ytrue,ypred).ravel()
@@ -78,45 +77,9 @@ def saveResults(ytrue,ypred,scores,fpr,tpr,precision, recall, title):
     print('file saved !!!!!')
     
     
-def plotAllROCs(wind_size,pos_class=1):
-    for model in models: 
-        print(model)
-        file_path_fpr = res_path+str(wind_size)+'_'+model+'_fpr.csv'
-        file_path_tpr = res_path+str(wind_size)+'_'+model+'_tpr.csv'
-        fpr = pd.read_csv(file_path_fpr, sep=',',header=None).values.tolist()
-        tpr = pd.read_csv(file_path_tpr, sep=',',header=None).values.tolist()
-        roc_auc = auc(fpr, tpr)
-        plt.plot(fpr, tpr,label= model + '(auc = %0.2f)' % roc_auc)
-    lw = 2
-    plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('ROC curves for all the models with '+ str(pos_class) + ' as +ve class')
-    legend = plt.legend(loc="center left",frameon=True,bbox_to_anchor=(1,0.5))
-    legend.get_frame().set_edgecolor('black')
-    plt.show()
-
 
     
-def plotAllPRs(wind_size,pos_class=1):
-    for model in models: 
-        file_path_precision =  res_path+str(wind_size)+'_'+model+'_precision.csv'
-        file_path_recall =  res_path+str(wind_size)+'_'+model+'_recall.csv'
-        file_path_ytrue =  res_path+str(wind_size)+'_'+model+'_ytrue.csv'
-        file_path_scores =  res_path+str(wind_size)+'_'+model+'_scores.csv'
-        precision = pd.read_csv(file_path_precision, sep=',',header=None).values.tolist()
-        recall = pd.read_csv(file_path_recall, sep=',',header=None).values.tolist()
-        ytrue = pd.read_csv(file_path_ytrue, sep=',',header=None).values.tolist()
-        scores = np.asarray(pd.read_csv(file_path_scores, sep=',',header=None).values.tolist())
-        average_precision = average_precision_score(ytrue, scores[:,pos_class])
-        plt.plot(recall, precision,label= model + '(ap = %0.2f)' % average_precision)
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.title('Precision-Recall Curves for all the models with '+ str(pos_class) + ' as +ve class')
-    legend = plt.legend(loc="center left",frameon=True,bbox_to_anchor=(1,0.5))
-    legend.get_frame().set_edgecolor('black')
-    plt.show()
-    
+
     
 def getStocksList(data_df):
     g = data_df.groupby('SYMBOL')
@@ -175,7 +138,6 @@ def compAnnualReturns(stock,ypred,data_df,window_size,limit,sub_one=True):
             buyPoint = buyPoint*100
             shareNumber = (money-transactionCharges)/buyPoint
             forceSell = False
-            #startDate = datetime.datetime.strptime(stock_table_df.iloc[k]['DATE'], "%Y-%m-%d").date()
     
             for j in range(k,rows):
                 sellPoint = stock_table_df.iloc[j]['CLOSE']
@@ -183,18 +145,10 @@ def compAnnualReturns(stock,ypred,data_df,window_size,limit,sub_one=True):
                 sellPoint = sellPoint*100;
                 moneyTemp = (shareNumber*sellPoint)-transactionCharges
                     
-                #stop loss %10
-                #if(money*0.9>moneyTemp)
-                #    money = moneyTemp
-                #    forceSell = true
 
-                #if(stock_table_df.iloc[j][0] == 0 or forceSell == True):
                 if(stock_table_df.iloc[j]['Predicted'] == 1 or forceSell == True):
                     sellPoint = stock_table_df.iloc[j]['CLOSE']
-                    #sellPoint = stock_table_df.iloc[j]['HIGH']
-                    #endDate = datetime.datetime.strptime(stock_table_df.iloc[j]['DATE'], "%Y-%m-%d").date()
-                    #dt = endDate-startDate
-                    #num_days += dt.days
+
                     sellPoint = sellPoint*100
                     
                     
@@ -225,12 +179,8 @@ def compAnnualReturns(stock,ypred,data_df,window_size,limit,sub_one=True):
                         minimumMoney = money
 
                     transactionCount += 1
-                    #print("\\\\"+transactionCount+"."+"("+(k+1)+"-"+(j+1)+") => " + round(sellPoint,2) + "-" + round(buyPoint,2)+ "= " + round(gain,2) + " Capital: \\$" + Precision.round(money,2) );
                     #print(str(transactionCount) + "." + "("+str(k+1)+"-"+str(j+1)+") => " + str(round((gain*shareNumber),2)) + " Capital: Rs" + str(round(money,2)))
-                    #builder.append(transactionCount+"."+"("+(k+1)+"-"+(j+1)+") => " + round((gain*shareNumber),2) + " Capital: Rs" + round(money,2)+"\n");
 
-                    #System.out.println(Precision.round(money,2) );
-                    totalPercentProfit = totalPercentProfit + (gain/buyPoint);
 
                     totalTransactionLength = totalTransactionLength + (j-k);
                     k = j+1
@@ -240,26 +190,12 @@ def compAnnualReturns(stock,ypred,data_df,window_size,limit,sub_one=True):
 
     startDate = datetime.datetime.strptime(stock_table_df.iloc[0]['DATE'], "%Y-%m-%d").date()
     endDate = datetime.datetime.strptime(stock_table_df.iloc[rows-1]['DATE'], "%Y-%m-%d").date()
-    #print(startDate)
-    #print(endDate)
     dt = endDate-startDate
     print('days:',dt.days)
-    #print('num_days:',num_days)
     numberOfDays = dt.days
-    #numberOfDays = num_days
     numberOfYears = numberOfDays/365
     if transactionCount == 0:
         transactionCount = 1e-5
     AR = round(((math.exp(math.log(money/startCapital)/numberOfYears)-1)*100),2)
-    #BaHAR = (round(((math.exp(math.log(moneyBAH/startCapital)/numberOfYears)-1)*100),2)
-    AnT = round((transactionCount/numberOfYears),1)
-    PoS = round((successTransactionCount/transactionCount)*100,2)
-    ApT = round((totalPercentProfit/transactionCount*100),2)
-    L = totalTransactionLength/transactionCount
-    MpT = round(maximumProfitPercent,2)
-    MlT = round(maximumLostPercent,2)
-    MaxCV = round(maximumMoney,2)
-    MinCV = round(minimumMoney,2)
-    IdleR = round((((rows-totalTransactionLength)/rows)*100),2)
-    #print(numberOfYears)
-    return AR, AnT, PoS, ApT, L, MpT, MlT, MaxCV, MinCV, IdleR
+
+    return AR
