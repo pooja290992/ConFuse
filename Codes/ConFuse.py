@@ -243,7 +243,7 @@ class Network(nn.Module):
         return loss
 
 
-    def computeLoss(self,predictions,mu,eps,lam):
+    def computeLoss(self,predictions,mu,eps):
         loss1 = self.conv_loss_distance()
         loss2 = self.conv_loss_frobenius() * eps
         loss3 = self.conv_loss_logdet() * mu
@@ -263,7 +263,7 @@ class Network(nn.Module):
 # In[3]:
 
 
-def train_model(epoch, model, optimizer, train_loader, batch_size, mu, eps, lam):
+def train_model(epoch, model, optimizer, train_loader, batch_size, mu, eps):
     model.train()
     t0 = time.time()
     correct = 0
@@ -293,7 +293,7 @@ def train_model(epoch, model, optimizer, train_loader, batch_size, mu, eps, lam)
 
         final_output = output
         
-        loss = model.computeLoss(final_output,mu,eps,lam)
+        loss = model.computeLoss(final_output,mu,eps)
         final_loss += loss
         loss.backward()
         optimizer.step()
@@ -317,7 +317,6 @@ def train_on_batch(lr,epochs,momentum,X_train,Y_train,X_test,Y_test,batch_size):
     
     mu = 0.01
     eps = 0.0001
-    lam = 0 
     out_planes1 = out_pl1
     ksize1 = ks1
     maxpool1 = maxpl1
@@ -329,7 +328,7 @@ def train_on_batch(lr,epochs,momentum,X_train,Y_train,X_test,Y_test,batch_size):
                                  amsgrad=False)
 
     for epoch in range(1, epochs + 1):
-        tr_loss = train_model(epoch, model, optimizer, train_loader, batch_size, mu, eps, lam)
+        tr_loss = train_model(epoch, model, optimizer, train_loader, batch_size, mu, eps)
         if epoch%plot_epoch_interval==0:
             train_loss.append(tr_loss)
             epochs_list.append(epoch)
