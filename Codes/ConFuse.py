@@ -243,13 +243,13 @@ class Network(nn.Module):
         return loss
 
 
-    def computeLoss(self,predictions,mu,eps):
+    def computeLoss(self,predictions,lam,mu):
         loss1 = self.conv_loss_distance()
-        loss2 = self.conv_loss_frobenius() * eps
-        loss3 = self.conv_loss_logdet() * mu
+        loss2 = self.conv_loss_frobenius() * mu
+        loss3 = self.conv_loss_logdet() * lam
         loss4 = self.loss_distance(predictions)
-        loss5 = self.loss_frobenius() * eps
-        loss6 = self.loss_logdet() * mu
+        loss5 = self.loss_frobenius() * mu
+        loss6 = self.loss_logdet() * lam
         loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
         return loss
 
@@ -263,7 +263,7 @@ class Network(nn.Module):
 # In[3]:
 
 
-def train_model(epoch, model, optimizer, train_loader, batch_size, mu, eps):
+def train_model(epoch, model, optimizer, train_loader, batch_size, lam, mu):
     model.train()
     t0 = time.time()
     correct = 0
@@ -293,7 +293,7 @@ def train_model(epoch, model, optimizer, train_loader, batch_size, mu, eps):
 
         final_output = output
         
-        loss = model.computeLoss(final_output,mu,eps)
+        loss = model.computeLoss(final_output,lam,mu)
         final_loss += loss
         loss.backward()
         optimizer.step()
@@ -315,8 +315,8 @@ def train_on_batch(lr,epochs,momentum,X_train,Y_train,X_test,Y_test,batch_size):
     test_loader = DataLoader(RegFinancialData(X_test,Y_test),batch_size=batch_size,shuffle=False) 
     
     
-    mu = 0.01
-    eps = 0.0001
+    lam = 0.01
+    mu = 0.0001
     out_planes1 = out_pl1
     ksize1 = ks1
     maxpool1 = maxpl1
@@ -328,7 +328,7 @@ def train_on_batch(lr,epochs,momentum,X_train,Y_train,X_test,Y_test,batch_size):
                                  amsgrad=False)
 
     for epoch in range(1, epochs + 1):
-        tr_loss = train_model(epoch, model, optimizer, train_loader, batch_size, mu, eps)
+        tr_loss = train_model(epoch, model, optimizer, train_loader, batch_size, lam, mu)
         if epoch%plot_epoch_interval==0:
             train_loss.append(tr_loss)
             epochs_list.append(epoch)
@@ -359,7 +359,7 @@ def plotGraph(title, train_loss):
     plt.ylabel('Loss')
     plt.yscale('log')
     plt.title('Loss plot for ' + title)
-    plt.savefig(base_path+'Results2/Loss_Plots/'+ title + '.eps',format='eps',dpi = 1000)
+    plt.savefig(base_path+'Results2/Loss_Plots/'+ title + '.mu',format='mu',dpi = 1000)
 
 
 
