@@ -26,7 +26,7 @@ base_path = '../'
 def getData(fileName):
     filepath = base_path + 'data/' + fileName
     data = pd.read_csv(filepath,sep = ',')
-    display(data.head())
+    print(data.head())
     return data
     
     
@@ -44,43 +44,8 @@ def splitData(data,labels,test_size = 0.20):
     X_train, X_test = data[0:train_size],data[train_size:]  
     Y_train, Y_test = labels[0:train_size],labels[train_size:]  
     return X_train,Y_train,X_test,Y_test
-    
-    
-    
-def splitDataWithVal(data,labels,test_size = 0.20,val_size = 0.25):
-    train_size = int(len(data)*(1-test_size))
-    val_size = int(train_size*(1-val_size))
-    X_train, X_val, X_test = data[0:val_size],data[val_size:train_size],data[train_size:]  
-    Y_train, Y_val, Y_test = labels[0:val_size],labels[val_size:train_size],labels[train_size:]
-    return X_train,Y_train,X_val,Y_val,X_test,Y_test
-    
-    
-def getWindowedData(data_df,group_name = 'ABIRLANUVO',window_size = 7,features_list = ['CLOSE','OPEN','HIGH','LOW','CONTRACTS','DATE','Stock_class']):
-    g = data_df.groupby('SYMBOL')
-    g.groups.keys()
-    X = g.get_group(group_name)
-    X.sort_values(by = ['DATE'],inplace=True)
-    rows,cols=X.shape
-    #display(X.tail())
-    #display(type(X[0:10]))#.shape)
-    Stock_class=X[['Stock_class']].copy()
-    Stock_class=np.asarray(Stock_class)
-    stock_class=Stock_class.reshape(1,rows)
-    ##print(stock_class.shape)
-    labels_new = stock_class[0,window_size:]
-    ##print(labels_new.shape[0])
-    windowed_data = []
-    stock_table = []
-    start_idx = 0
-    end_idx = 0
-    for i in range(labels_new.shape[0]):
-        start_idx = i 
-        end_idx = start_idx + window_size
-        if end_idx < rows:
-            windowed_data.append(X[start_idx:end_idx])
-            stock_table.extend(X[end_idx:end_idx+1][features_list].values.tolist())
-    return labels_new,windowed_data,stock_table
-    
+     
+       
 
 
 def getWindowedDataReg(data_df,group_name = 'ABIRLANUVO',window_size = 7,features_list = ['CLOSE','OPEN','HIGH','LOW','CONTRACTS','DATE','Stock_class']):

@@ -15,7 +15,6 @@ import numpy as np
 
 import os 
 from datetime import date
-from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
 import math
@@ -67,7 +66,6 @@ class Transform(nn.Module):
         self.i = 1
         self.atom_ratio = 0.5
         self.init_X()
-        self.gap = AdaptiveAvgPool1d(1)
         
         
         
@@ -381,9 +379,9 @@ def checkClassImbal(Y_train):
 
 
 window_size = 5
-fileName = 'phd_research_data.csv'
+fileName = 'stocks_data.csv'
 data_df = getData(fileName)
-if fileName == 'phd_research_data.csv':
+if fileName == 'stocks_data.csv':
     data_df.drop(['Unnamed: 0'],inplace=True,axis=1)
 #we are not using these labels
 data_df,_ = labelData(data_df.copy())
@@ -446,8 +444,8 @@ print(param_path)
 
 
 t_0 = time.time()
+df_temp1 = pd.read_csv(base_path+'data/init.csv') 
 for stock in stocks_list[start:end]:
-    t0 = time.time()
     _,windowed_data,_, next_day_values = getWindowedDataReg(data_df,stock,window_size)
     feat_wise_data = getFeatWiseData(windowed_data,features_list)
     prev_day_values = getPrevDayFeatures(feat_wise_data)
@@ -463,38 +461,125 @@ for stock in stocks_list[start:end]:
     print('next_day_values.shape:', next_day_values.shape)
     prev_val_path = base_path + 'data/Reg3/TL_Test/' + stock + param_path +  '_' + str(test_size) + '_tl_yprev_cp.npy'
     np.save(prev_val_path,prev_day_values)
-    for sd in range(1,seed_range+1):
-        t01 = time.time()
-        seed = sd
-        print('Training for stock :',stock)
-        print('seed : ',seed)
-        print('starting at time:',t0)
-        print('*'*100)
-        if custom_batch_size_flag:
-            batch_size = bs
-        else:
-            batch_size = X_train.shape[0]
-        Ztrain, Ztest,train_loss = train_on_batch(lr,epochs,momentum,X_train,Y_train,X_test,Y_test,batch_size)
-        xtr_path = base_path + 'data/Reg3/TL_Train/' + stock + param_path +'_' + str(test_size) + '_tl_xtrain' + str(seed) + '.npy'
-        ytr_path = base_path + 'data/Reg3/TL_Train/' + stock + param_path +  '_' + str(test_size) + '_tl_ytrain' + str(seed) + '.npy'
-        xte_path = base_path + 'data/Reg3/TL_Test/' + stock + param_path +  '_' + str(test_size) + '_tl_xtest' + str(seed) + '.npy'
-        yte_path = base_path + 'data/Reg3/TL_Test/' + stock + param_path +  '_' + str(test_size) + '_tl_ytest' + str(seed) + '.npy'
-        np.save(xtr_path,Ztrain)
-        np.save(ytr_path,Y_train)
-        np.save(xte_path,Ztest)
-        np.save(yte_path,Y_test)
-        t11 = time.time()
-        print('*'*100)
-        #print('*'*100)
-        print('\n')
-        print('time taken for training one stock:',datetime.timedelta(seconds = t11-t01))
-    t1 = time.time()
-    print('time taken for one stock through all seeds',datetime.timedelta(seconds = t1-t0))
+    seed = int(df_temp1.loc[df_temp1['index']==stock]['seed'].values.tolist()[0])
+    print('Training for stock :',stock)
+    print('seed : ',seed)
+    t01 = time.time()
+    print('starting at time:',t01)
+    print('*'*100)
+    if custom_batch_size_flag:
+        batch_size = bs
+    else:
+        batch_size = X_train.shape[0]
+    Ztrain, Ztest,train_loss = train_on_batch(lr,epochs,momentum,X_train,Y_train,X_test,Y_test,batch_size)
+    xtr_path = base_path + 'data/Reg3/TL_Train/' + stock + param_path +'_' + str(test_size) + '_tl_xtrain' + str(seed) + '.npy'
+    ytr_path = base_path + 'data/Reg3/TL_Train/' + stock + param_path +  '_' + str(test_size) + '_tl_ytrain' + str(seed) + '.npy'
+    xte_path = base_path + 'data/Reg3/TL_Test/' + stock + param_path +  '_' + str(test_size) + '_tl_xtest' + str(seed) + '.npy'
+    yte_path = base_path + 'data/Reg3/TL_Test/' + stock + param_path +  '_' + str(test_size) + '_tl_ytest' + str(seed) + '.npy'
+    np.save(xtr_path,Ztrain)
+    np.save(ytr_path,Y_train)
+    np.save(xte_path,Ztest)
+    np.save(yte_path,Y_test)
+    t11 = time.time()
+    print('*'*100)
+    print('\n')
+    print('time taken for training one stock:',datetime.timedelta(seconds = t11-t01))
 t_1 = time.time()
 print('time taken for all stocks through all seeds : ',str(datetime.timedelta(seconds = t_1-t_0)))
 
 
 
+# # External Classifier
+
+# In[18]:
+
+def clfRF(Ztrain,Y_train,Ztest,Y_test,n_clf=5,depth=1,rnd_state=11):
+ clf_rf = RandomForestClassifier(n_estimators=n_clf, max_depth=depth,random_state=rnd_state)
+ clf_rf.fit(Ztrain, Y_train)
+ ytr_rf_pred = clf_rf.predict(Ztrain)
+ yte_rf_pred = clf_rf.predict(Ztest)
+ tr_scores = clf_rf.predict_proba(Ztrain)
+ te_scores = clf_rf.predict_proba(Ztest)
+ return ytr_rf_pred, yte_rf_pred, tr_scores, te_scores
+
+
+
+# In[19]:
+
+rf_res_file_name = base_path+'Results/Classification/res_classification_measures.csv'
+rf_pred_file_name = base_path+'Results/Classification/res_classification_pred.csv'
+if os.path.exists(rf_res_file_name):
+  os.remove(rf_res_file_name)
+if os.path.exists(rf_pred_file_name):
+  os.remove(rf_pred_file_name)
+     
+     
+# In[22]:
+
+
+cnt = 0 
+pos_label = 1
+depth = 3
+num_clfs = 6
+rf_test_measures_dict  = {}
+final_results_df = pd.DataFrame()
+t0 = time.time()
+df_temp2 = pd.read_csv(base_path+'data/init.csv') 
+for stock in stocks_list[start:end]:
+ t01 = time.time()
+ temp_dict = {}
+ rf_test_measures_dict[stock] = {}
+ _,windowed_data,_, _ = getWindowedDataReg(data_df,stock,window_size)
+ feat_wise_data = getFeatWiseData(windowed_data,features_list)
+ prev_day_values = getPrevDayFeatures(feat_wise_data)
+ prev_day_values = prev_day_values[:,0]
+ seed = int(df_temp2.loc[df_temp2['index']==stock]['seed'].values.tolist()[0])
+ random_state = int(df_temp2.loc[df_temp2['index']==stock]['random_state'].values.tolist()[0])
+ print('stock : ', stock)
+ xtr_path = base_path + 'data/Reg3/TL_Train/' + stock + param_path +'_' + str(test_size) + '_tl_xtrain' + str(seed) + '.npy'
+ ytr_path = base_path + 'data/Reg3/TL_Train/' + stock + param_path +  '_' + str(test_size) + '_tl_ytrain' + str(seed) + '.npy'
+ xte_path = base_path + 'data/Reg3/TL_Test/' + stock + param_path +  '_' + str(test_size) + '_tl_xtest' + str(seed) + '.npy'
+ yte_path = base_path + 'data/Reg3/TL_Test/' + stock + param_path +  '_' + str(test_size) + '_tl_ytest' + str(seed) + '.npy'
+ Ztrain = np.load(xtr_path)
+ Y_train = np.load(ytr_path)
+ Ztest = np.load(xte_path)
+ Y_test = np.load(yte_path)
+ ytr_prev_day = prev_day_values[:Y_train.shape[0]]
+ yte_prev_day  = prev_day_values[Y_train.shape[0]:]
+ yte_prev_day  = yte_prev_day[:yte_prev_day.shape[0]-1]
+
+ Y_train_true_labels = np.where((Y_train - ytr_prev_day)>0,1,0)
+ Y_test_true_labels = np.where((Y_test - yte_prev_day)>0,1,0)
+ ytr_pred, yte_pred, tr_scores, te_scores = clfRF(Ztrain,Y_train_true_labels, Ztest, Y_test_true_labels, n_clf=num_clfs,depth=depth, rnd_state=random_state)
+ limit = Ztrain.shape[0]
+ precision, recall, f1_score,_ = precision_recall_fscore_support(Y_test_true_labels, yte_pred, pos_label=1, average='binary')   
+ print(f1_score)
+ AR = compAnnualReturns(stock,yte_pred,data_df,window_size,limit)
+ #print('AR: ',AR)
+ fpr, tpr, thresholds = roc_curve(Y_test_true_labels, te_scores[:,pos_label], pos_label = pos_label)
+ AUC_val = auc(fpr, tpr)
+ rf_test_measures_dict[stock]['F1_score'] = round(f1_score,3)
+ rf_test_measures_dict[stock]['Precision'] = round(precision,3)
+ rf_test_measures_dict[stock]['Recall'] = round(recall,3)
+ rf_test_measures_dict[stock]['AUC'] = round(AUC_val,3)
+ rf_test_measures_dict[stock]['AR'] = AR
+         
+ temp_final_df = pd.DataFrame(Y_test,columns=['ytrue'])
+ temp_final_df['ypred'] = yte_pred
+ temp_scores_df = pd.DataFrame(te_scores) 
+ temp_final_df = pd.concat([temp_final_df,temp_scores_df],axis = 1)
+ temp_final_df['SYMBOL'] = stock
+ final_results_df = pd.concat([final_results_df,temp_final_df],axis = 0)
+ t11 = time.time()
+ print('time taken for one stock with RF: ' ,datetime.timedelta(seconds = t11 - t01))
+ print('*'*100)
+t1 = time.time()
+print('time taken for all stocks with RF: ' ,datetime.timedelta(seconds = t1 - t0))
+
+
+measures_df = pd.DataFrame.from_dict(data = rf_test_measures_dict, orient = 'index').reset_index()
+measures_df.to_csv(rf_res_file_name,index=None, header='column_names')
+final_results_df.to_csv(rf_pred_file_name,index=None, header='column_names')
 
 
 
@@ -514,8 +599,8 @@ def ridge_regressor(Xtrain, Ytrain, Xtest, Ytest, alpha = 1.0, random_state = 1)
 # In[26]:
 
 
-res_file_name = base_path+'Results2/Reg3/res_reg_measures.csv'
-pred_file_name = base_path+'Results2/Reg3/res_reg_pred.csv'
+res_file_name = base_path+'Results/Reg/res_reg_measures.csv'
+pred_file_name = base_path+'Results/Reg/res_reg_pred.csv'
 if os.path.exists(res_file_name):
     os.remove(res_file_name)
 if os.path.exists(pred_file_name):
@@ -531,7 +616,6 @@ test_pred_dict = {}
 test_measures_dict = {}
 cnt = 0
 t0 = time.time()
-df_temp1 = pd.read_csv(base_path+'data/init.csv') 
 for stock in stocks_list[start:end]:
     t01 = time.time()
     print('cnt:',cnt)
@@ -606,97 +690,7 @@ test_pred_df.to_csv(pred_file_name,index=None, header='column_names')
 
 
 
-# # External Classifier
 
-# In[18]:
-
-def clfRF(Ztrain,Y_train,Ztest,Y_test,n_clf=5,depth=1,rnd_state=11):
- clf_rf = RandomForestClassifier(n_estimators=n_clf, max_depth=depth,random_state=rnd_state)
- clf_rf.fit(Ztrain, Y_train)
- ytr_rf_pred = clf_rf.predict(Ztrain)
- yte_rf_pred = clf_rf.predict(Ztest)
- tr_scores = clf_rf.predict_proba(Ztrain)
- te_scores = clf_rf.predict_proba(Ztest)
- return ytr_rf_pred, yte_rf_pred, tr_scores, te_scores
-
-
-
-# In[19]:
-
-rf_res_file_name = base_path+'Results2/Reg3/Classification/res_classification_measures.csv'
-rf_pred_file_name = base_path+'Results2/Reg3/Classification/res_classification_pred.csv'
-if os.path.exists(rf_res_file_name):
-  os.remove(rf_res_file_name)
-if os.path.exists(rf_pred_file_name):
-  os.remove(rf_pred_file_name)
-     
-     
-# In[22]:
-
-
-cnt = 0 
-pos_label = 1
-depth = 3
-num_clfs = 6
-rf_test_measures_dict  = {}
-final_results_df = pd.DataFrame()
-t0 = time.time()
-df_temp2 = pd.read_csv(base_path+'data/init.csv') 
-for stock in stocks_list[start:end]:
- t01 = time.time()
- temp_dict = {}
- rf_test_measures_dict[stock] = {}
- _,windowed_data,_, _ = getWindowedDataReg(data_df,stock,window_size)
- feat_wise_data = getFeatWiseData(windowed_data,features_list)
- prev_day_values = getPrevDayFeatures(feat_wise_data)
- prev_day_values = prev_day_values[:,0]
- seed = int(df_temp2.loc[df_temp2['index']==stock]['seed'].values.tolist()[0])
- random_state = int(df_temp2.loc[df_temp2['index']==stock]['random_state'].values.tolist()[0])
- print('stock : ', stock)
- xtr_path = base_path + 'data/Reg3/TL_Train/' + stock + param_path +'_' + str(test_size) + '_tl_xtrain' + str(seed) + '.npy'
- ytr_path = base_path + 'data/Reg3/TL_Train/' + stock + param_path +  '_' + str(test_size) + '_tl_ytrain' + str(seed) + '.npy'
- xte_path = base_path + 'data/Reg3/TL_Test/' + stock + param_path +  '_' + str(test_size) + '_tl_xtest' + str(seed) + '.npy'
- yte_path = base_path + 'data/Reg3/TL_Test/' + stock + param_path +  '_' + str(test_size) + '_tl_ytest' + str(seed) + '.npy'
- Ztrain = np.load(xtr_path)
- Y_train = np.load(ytr_path)
- Ztest = np.load(xte_path)
- Y_test = np.load(yte_path)
- ytr_prev_day = prev_day_values[:Y_train.shape[0]]
- yte_prev_day  = prev_day_values[Y_train.shape[0]:]
- yte_prev_day  = yte_prev_day[:yte_prev_day.shape[0]-1]
-
- Y_train_true_labels = np.where((Y_train - ytr_prev_day)>0,1,0)
- Y_test_true_labels = np.where((Y_test - yte_prev_day)>0,1,0)
- ytr_pred, yte_pred, tr_scores, te_scores = clfRF(Ztrain,Y_train_true_labels, Ztest, Y_test_true_labels, n_clf=num_clfs,depth=depth, rnd_state=random_state)
- limit = Ztrain.shape[0]
- precision, recall, f1_score,_ = precision_recall_fscore_support(Y_test_true_labels, yte_pred, pos_label=1, average='binary')   
- print(f1_score)
- AR = compAnnualReturns(stock,yte_pred,data_df,window_size,limit)
- #print('AR: ',AR)
- fpr, tpr, thresholds = roc_curve(Y_test_true_labels, te_scores[:,pos_label], pos_label = pos_label)
- AUC_val = auc(fpr, tpr)
- rf_test_measures_dict[stock]['F1_score'] = round(f1_score,3)
- rf_test_measures_dict[stock]['Precision'] = round(precision,3)
- rf_test_measures_dict[stock]['Recall'] = round(recall,3)
- rf_test_measures_dict[stock]['AUC'] = round(AUC_val,3)
- rf_test_measures_dict[stock]['AR'] = AR
-         
- temp_final_df = pd.DataFrame(Y_test,columns=['ytrue'])
- temp_final_df['ypred'] = yte_pred
- temp_scores_df = pd.DataFrame(te_scores) 
- temp_final_df = pd.concat([temp_final_df,temp_scores_df],axis = 1)
- temp_final_df['SYMBOL'] = stock
- final_results_df = pd.concat([final_results_df,temp_final_df],axis = 0)
- t11 = time.time()
- print('time taken for one stock with RF: ' ,datetime.timedelta(seconds = t11 - t01))
- print('*'*100)
-t1 = time.time()
-print('time taken for all stocks with RF: ' ,datetime.timedelta(seconds = t1 - t0))
-
-
-measures_df = pd.DataFrame.from_dict(data = rf_test_measures_dict, orient = 'index').reset_index()
-measures_df.to_csv(rf_res_file_name,index=None, header='column_names')
-final_results_df.to_csv(rf_pred_file_name,index=None, header='column_names')
 
 
 
